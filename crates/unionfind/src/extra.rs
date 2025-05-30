@@ -46,7 +46,7 @@ impl<K, V> GrowableExtra<K, V> for () {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ByRank<M, T> {
     mapping: M,
     phantom: PhantomData<T>,
