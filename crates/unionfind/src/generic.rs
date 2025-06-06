@@ -6,11 +6,12 @@ use crate::union::Union;
 use std::cmp::Ordering;
 use std::marker::PhantomData;
 use thiserror::Error;
+use serde::{Deserialize, Serialize};
 
 /// A union find data structure. Note that this implementation clones elements a lot.
 /// Generally, you should use the data structure with small, preferably [`Copy`]able types,
 /// like integers. However, arbitrary [`Clone`]+[`PartialEq`] types are possible.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UnionFind<T, V, M, E = ()> {
     /// A mapping from some key to a parent key, for every key.
     /// When a key is in a class on its own, its parent is itself. Once
