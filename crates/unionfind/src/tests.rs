@@ -1,8 +1,7 @@
 use crate::generic::{AddError, NewUnionFindError, UnionStatus};
 use crate::mapping::NotInOrder;
 use crate::{
-    BTreeUnionFind, BTreeUnionFindByRank, HashUnionFind, HashUnionFindByRank, VecUnionFind,
-    VecUnionFindByRank,
+    BTreeUnionFind, HashUnionFind, HashUnionFindByRank, VecUnionFind
 };
 
 #[test]
@@ -38,16 +37,6 @@ fn not_in_order() {
     assert_eq!(uf.add(8), Err(AddError::Parent(NotInOrder)));
 }
 
-#[test]
-pub fn union() {
-    let mut uf = VecUnionFindByRank::new([0, 1, 2, 3, 4]).unwrap();
-    uf.union_by_rank(&1, &2).unwrap();
-
-    assert_eq!(uf.find(&0), Some(0));
-    assert_eq!(uf.find(&1), uf.find(&2));
-    assert_eq!(uf.find(&3), Some(3));
-    assert_eq!(uf.find(&4), Some(4));
-}
 
 #[test]
 pub fn double_union() {
@@ -77,9 +66,7 @@ pub fn double_union() {
             );
         }};
     }
-    test_double_union!(VecUnionFind::<usize>; VecUnionFindByRank::<usize>);
     test_double_union!(HashUnionFind::<usize>; HashUnionFindByRank::<usize>);
-    test_double_union!(BTreeUnionFind::<usize>; BTreeUnionFindByRank::<usize>);
 }
 
 #[test]
@@ -116,10 +103,8 @@ pub fn grow() {
             assert_eq!(uf.find(&1), uf.find(&3));
         }};
     }
-
-    grow_test!(VecUnionFindByRank::<usize>);
+    
     grow_test!(HashUnionFindByRank::<usize>);
-    grow_test!(BTreeUnionFindByRank::<usize>);
 }
 
 #[test]
@@ -146,7 +131,6 @@ pub fn grow_non_consecutive() {
     }
 
     grow_test!(HashUnionFindByRank::<usize>);
-    grow_test!(BTreeUnionFindByRank::<usize>);
 }
 
 #[test]
@@ -183,9 +167,7 @@ pub fn union_by_rank() {
         }};
     }
 
-    by_rank_test!(VecUnionFindByRank::<usize>);
     by_rank_test!(HashUnionFindByRank::<usize>);
-    by_rank_test!(BTreeUnionFindByRank::<usize>);
 }
 
 #[test]
@@ -240,9 +222,7 @@ fn or_add_by_rank() {
             assert!(uf.find(&10).is_some());
         }};
     }
-    or_add_test!(VecUnionFindByRank::<usize>);
     or_add_test!(HashUnionFindByRank::<usize>);
-    or_add_test!(BTreeUnionFindByRank::<usize>);
 }
 
 #[derive(Debug, PartialOrd, PartialEq, Ord, Eq, Copy, Clone, Hash)]
@@ -265,13 +245,5 @@ fn custom_uf() {
     assert_eq!(uf.find(&C), uf.find(&D));
     uf.union_by_rank(&A, &C).unwrap();
     assert_eq!(uf.find(&B), uf.find(&D));
-
-    let mut uf = BTreeUnionFindByRank::new([A, B, C, D]).unwrap();
-    uf.union_by_rank(&A, &B).unwrap();
-    uf.union_by_rank(&C, &D).unwrap();
-    assert_ne!(uf.find(&B), uf.find(&D));
-    assert_eq!(uf.find(&A), uf.find(&B));
-    assert_eq!(uf.find(&C), uf.find(&D));
-    uf.union_by_rank(&A, &C).unwrap();
-    assert_eq!(uf.find(&B), uf.find(&D));
+    
 }

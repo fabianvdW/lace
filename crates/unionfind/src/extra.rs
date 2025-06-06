@@ -1,9 +1,13 @@
-use crate::mapping::{GrowableMapping, RankMapping};
+use std::collections::HashMap;
+use crate::mapping::{GrowableMapping, Mapping, RankMapping};
 use std::convert::Infallible;
 use std::error::Error;
 use std::fmt::Debug;
+use std::hash::Hash;
 use std::marker::PhantomData;
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
+
 
 /// Trait that has to be implemented on types that want to be extra information for each
 /// element of a [`GenericUnionFind`](crate::generic::UnionFind).
@@ -47,28 +51,26 @@ impl<K, V> GrowableExtra<K, V> for () {
     }
 }
 
+#[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(bound = "M: Serialize + serde::de::DeserializeOwned, T: Serialize + serde::de::DeserializeOwned")]
-pub struct ByRank<M, T> {
-    mapping: M,
+#[serde(bound = "T: Serialize + serde::de::DeserializeOwned")]
+pub struct ByRank<T: Hash + Eq> {
+    #[serde_as(as = "Vec<(_, _)>")]
+    mapping: HashMap<T, usize>,
     phantom: PhantomData<T>,
 }
 
-impl<M, T> ByRank<M, T>
-where
-    M: RankMapping<T>,
+impl<T: Hash+Eq> ByRank<T>
 {
-    pub fn new(elems: impl IntoIterator<Item = T>) -> Result<Self, <M as RankMapping<T>>::Err> {
+    pub fn new(elems: impl IntoIterator<Item = T>) -> Result<Self, ()> {
         Ok(Self {
-            mapping: M::zero_map(elems)?,
+            mapping: HashMap::zero_map(elems).unwrap(),
             phantom: Default::default(),
         })
     }
 }
 
-impl<M, T> ByRank<M, T>
-where
-    M: RankMapping<T>,
+impl<T: Hash+Eq> ByRank<T>
 {
     pub fn rank(&self, elem: &T) -> Option<usize> {
         self.mapping.get(elem).cloned()
@@ -79,27 +81,23 @@ where
     }
 }
 
-impl<M, T> Extra<T, usize> for ByRank<M, T>
-where
-    M: RankMapping<T>,
+impl<T: Hash+Eq> Extra<T, usize> for ByRank<T>
 {
-    type DefaultMappingErr = <M as RankMapping<T>>::Err;
+    type DefaultMappingErr = <HashMap<T, usize> as RankMapping<T>>::Err;
 
     fn default_mapping(
         elems: impl IntoIterator<Item = T>,
     ) -> Result<Self, Self::DefaultMappingErr> {
         Ok(Self {
-            mapping: M::zero_map(elems)?,
+            mapping: HashMap::zero_map(elems)?,
             phantom: Default::default(),
         })
     }
 }
 
-impl<M, T> GrowableExtra<T, usize> for ByRank<M, T>
-where
-    M: GrowableMapping<T, usize>,
+impl<T: Hash+ Eq> GrowableExtra<T, usize> for ByRank<T>
 {
-    type AddError = <M as GrowableMapping<T, usize>>::AddError;
+    type AddError = <HashMap<T, usize> as GrowableMapping<T, usize>>::AddError;
 
     fn add(&mut self, elem: T, value: usize) -> Result<(), Self::AddError> {
         self.mapping.add(elem, value)

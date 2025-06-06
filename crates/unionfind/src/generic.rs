@@ -4,6 +4,7 @@ use crate::mapping::{
 };
 use crate::union::Union;
 use std::cmp::Ordering;
+use std::hash::Hash;
 use std::marker::PhantomData;
 use thiserror::Error;
 use serde::{Deserialize, Serialize};
@@ -168,19 +169,18 @@ where
     }
 }
 
-impl<T: Clone + PartialEq, V, M, R> UnionFind<T, V, M, ByRank<R, T>>
+impl<T: Clone + PartialEq + Hash+ Eq, V, M> UnionFind<T, V, M, ByRank<T>>
 where
     M: GrowableIdentityMapping<T>,
     V: Default,
-    R: RankMapping<T>,
-    ByRank<R, T>: GrowableExtra<T, V>,
+    ByRank<T>: GrowableExtra<T, V>,
 {
     /// Union two elements in the union find by rank. Try to add the elements if they were not already in.
     pub fn union_by_rank_or_add(
         &mut self,
         elem1: &T,
         elem2: &T,
-    ) -> Result<UnionStatus, AddErrorSimple<T, V, M, ByRank<R, T>>>
+    ) -> Result<UnionStatus, AddErrorSimple<T, V, M, ByRank<T>>>
     where
         T: Clone,
     {
@@ -267,11 +267,10 @@ pub enum UnionByRankError {
     Elem2NotFound,
 }
 
-impl<T, V, M, R> UnionFind<T, V, M, ByRank<R, T>>
+impl<T, V, M> UnionFind<T, V, M, ByRank<T>>
 where
     M: Mapping<T, T>,
-    R: RankMapping<T>,
-    T: Clone + PartialEq,
+    T: Clone + PartialEq+ Hash +Eq,
 {
     /// union two elements in the union find by rank
     pub fn union_by_rank(&mut self, elem1: &T, elem2: &T) -> Result<UnionStatus, UnionByRankError> {

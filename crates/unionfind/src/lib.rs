@@ -33,11 +33,8 @@ pub mod union;
 mod tests;
 
 pub type VecUnionFind<T> = UnionFind<T, (), Vec<T>, ()>;
-pub type VecUnionFindByRank<T> = UnionFind<T, usize, Vec<T>, ByRank<Vec<T>, T>>;
 
 pub type HashUnionFind<T> = UnionFind<T, (), HashMap<T, T>, ()>;
-pub type HashUnionFindByRank<T> = UnionFind<T, usize, HashMap<T, T>, ByRank<HashMap<T, usize>, T>>;
+pub type HashUnionFindByRank<T> = UnionFind<T, usize, HashMap<T, T>, ByRank<T>>;
 
 pub type BTreeUnionFind<T> = UnionFind<T, (), BTreeMap<T, T>, ()>;
-pub type BTreeUnionFindByRank<T> =
-    UnionFind<T, usize, BTreeMap<T, T>, ByRank<BTreeMap<T, usize>, T>>;
