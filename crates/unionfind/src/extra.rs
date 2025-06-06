@@ -3,6 +3,7 @@ use std::convert::Infallible;
 use std::error::Error;
 use std::fmt::Debug;
 use std::marker::PhantomData;
+use serde::{Deserialize, Serialize};
 
 /// Trait that has to be implemented on types that want to be extra information for each
 /// element of a [`GenericUnionFind`](crate::generic::UnionFind).
@@ -46,7 +47,7 @@ impl<K, V> GrowableExtra<K, V> for () {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ByRank<M, T> {
     mapping: M,
     phantom: PhantomData<T>,
