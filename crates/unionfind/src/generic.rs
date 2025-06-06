@@ -4,21 +4,26 @@ use crate::mapping::{
 };
 use crate::union::Union;
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use thiserror::Error;
 use serde::{Deserialize, Serialize};
+use serde::de::DeserializeOwned;
+use serde_with::serde_as;
 
 /// A union find data structure. Note that this implementation clones elements a lot.
 /// Generally, you should use the data structure with small, preferably [`Copy`]able types,
 /// like integers. However, arbitrary [`Clone`]+[`PartialEq`] types are possible.
+#[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UnionFind<T, V, M, E = ()> {
+pub struct UnionFind<T: Hash+Eq + Serialize + DeserializeOwned, V, E = ()> {
     /// A mapping from some key to a parent key, for every key.
     /// When a key is in a class on its own, its parent is itself. Once
     /// unions start happening, multiple keys might get the same parent indicating
     /// they are unioned.
-    parent: M,
+    #[serde_as(as = "Vec<(_, _)>")]
+    parent: HashMap<T, T>,
     /// An optional array of extra information for each key.
     /// Under union by rank this is a `Mapping<T, usize>` to assign a rank to each element
     /// in the union find.
@@ -38,27 +43,24 @@ pub enum NewUnionFindError<P, E> {
 type NewUnionFindErrorSimple<T, V, M, E> =
     NewUnionFindError<<M as ParentMapping<T>>::Err, <E as Extra<T, V>>::DefaultMappingErr>;
 
-impl<T, V, M, E> UnionFind<T, V, M, E>
+impl<T: Hash+Eq + Serialize + DeserializeOwned, V, E> UnionFind<T, V, E>
 where
-    M: ParentMapping<T>,
     T: Clone,
     E: Extra<T, V>,
 {
     /// Constructs a new union find, allowing you to specify all type parameters.
     pub fn new(
         elems: impl IntoIterator<Item = T> + Clone,
-    ) -> Result<Self, NewUnionFindErrorSimple<T, V, M, E>> {
+    ) -> Result<Self, ()> {
         Ok(Self {
-            parent: M::identity_map(elems.clone())
-                .map_err(NewUnionFindErrorSimple::<T, V, M, E>::Parent)?,
-            extra: E::default_mapping(elems)
-                .map_err(NewUnionFindErrorSimple::<T, V, M, E>::Extra)?,
+            parent: HashMap::identity_map(elems.clone()).unwrap(),
+            extra: E::default_mapping(elems).unwrap(),
             phantom: Default::default(),
         })
     }
 }
 
-impl<T: PartialEq, V, M: Mapping<T, T>, E> UnionFind<T, V, M, E> {
+impl<T: Hash+Eq + Serialize + DeserializeOwned, V, E> UnionFind<T, V, E> {
     /// Find an element in the union find. Performs no path shortening,
     /// but can be used through an immutable reference.
     ///
@@ -105,9 +107,8 @@ pub enum UnionOrAddError<Err, T, V, M: GrowableMapping<T, T>, E: GrowableExtra<T
     NotUnionable(Err),
 }
 
-impl<T: Clone + PartialEq, V, M, E> UnionFind<T, V, M, E>
+impl<T: Hash+Eq + Serialize + DeserializeOwned, V, E> UnionFind<T, V, E>
 where
-    M: GrowableIdentityMapping<T>,
     E: GrowableExtra<T, V>,
     V: Default,
 {
@@ -116,82 +117,20 @@ where
     /// If the element was not present in the unionfind previously, add it.
     ///
     /// Use [`find_shorten`](UnionFind::find_shorten_or_add) for a more efficient find.
-    pub fn find_or_add(&mut self, elem: &T) -> Result<T, AddErrorSimple<T, V, M, E>>
+    pub fn find_or_add(&mut self, elem: &T) -> Result<T, ()>
     where
         T: Clone,
     {
         match self.find(elem) {
             Some(i) => Ok(i),
             None => {
-                self.add(elem.clone())?;
+                self.add(elem.clone()).unwrap();
                 Ok(elem.clone())
             }
         }
     }
-
-    /// Find an element in the union find. Performs path shortening,
-    /// which means you need mutable access to the union find.
-    /// If the element was not present in the unionfind previously, add it.
-    ///
-    /// Use [`find`](UnionFind::find) for an immutable version.
-    pub fn find_shorten_or_add(&mut self, elem: &T) -> Result<T, AddErrorSimple<T, V, M, E>>
-    where
-        T: Clone,
-    {
-        match self.find_shorten(elem) {
-            Some(i) => Ok(i),
-            None => {
-                self.add(elem.clone())?;
-                Ok(elem.clone())
-            }
-        }
-    }
-
-    /// Union two elements in the union find. Try to add the elements if they were not already in.
-    pub fn union_by_or_add<U: Union<T>>(
-        &mut self,
-        elem1: &T,
-        elem2: &T,
-        union: U,
-    ) -> Result<UnionStatus, UnionOrAddError<U::Err, T, V, M, E>>
-    where
-        T: Clone,
-    {
-        let parent1 = self
-            .find_shorten_or_add(elem1)
-            .map_err(UnionOrAddError::AddError)?;
-        let parent2 = self
-            .find_shorten_or_add(elem2)
-            .map_err(UnionOrAddError::AddError)?;
-
-        self.union_helper(parent1, parent2, union)
-            .map_err(UnionOrAddError::NotUnionable)
-    }
 }
 
-impl<T: Clone + PartialEq + Hash+ Eq, V, M> UnionFind<T, V, M, ByRank<T>>
-where
-    M: GrowableIdentityMapping<T>,
-    V: Default,
-    ByRank<T>: GrowableExtra<T, V>,
-{
-    /// Union two elements in the union find by rank. Try to add the elements if they were not already in.
-    pub fn union_by_rank_or_add(
-        &mut self,
-        elem1: &T,
-        elem2: &T,
-    ) -> Result<UnionStatus, AddErrorSimple<T, V, M, ByRank<T>>>
-    where
-        T: Clone,
-    {
-        let parent1 = self.find_shorten_or_add(elem1)?;
-        let parent2 = self.find_shorten_or_add(elem2)?;
-
-        Ok(self
-            .union_by_rank_helper(parent1, parent2)
-            .expect("this should never go wrong since we just added these"))
-    }
-}
 
 #[derive(Error, Debug)]
 pub enum UnionError<Err> {
@@ -215,9 +154,7 @@ pub enum UnionStatus {
     PerformedUnion,
 }
 
-impl<T: PartialEq, V, M, E> UnionFind<T, V, M, E>
-where
-    M: Mapping<T, T>,
+impl<T: Hash+Eq + Serialize + DeserializeOwned, V, E> UnionFind<T, V, E>
 {
     fn union_helper<U: Union<T>>(
         &mut self,
@@ -267,9 +204,8 @@ pub enum UnionByRankError {
     Elem2NotFound,
 }
 
-impl<T, V, M> UnionFind<T, V, M, ByRank<T>>
+impl<T: Hash+Eq + Serialize + DeserializeOwned, V> UnionFind<T, V, ByRank<T>>
 where
-    M: Mapping<T, T>,
     T: Clone + PartialEq+ Hash +Eq,
 {
     /// union two elements in the union find by rank
@@ -334,13 +270,12 @@ pub enum AddError<E, P> {
 type AddErrorSimple<T, V, M, E> =
     AddError<<E as GrowableExtra<T, V>>::AddError, <M as GrowableMapping<T, T>>::AddError>;
 
-impl<T: Clone, V, M, E> UnionFind<T, V, M, E>
+impl<T: Clone + Hash+Eq + Serialize + DeserializeOwned, V, E> UnionFind<T, V, E>
 where
-    M: GrowableIdentityMapping<T>,
     E: GrowableExtra<T, V>,
     V: Default,
 {
-    pub fn add(&mut self, elem: T) -> Result<(), AddErrorSimple<T, V, M, E>> {
+    pub fn add(&mut self, elem: T) -> Result<(), AddErrorSimple<T, V, HashMap<T,T>, E>> {
         self.parent
             .add_identity(elem.clone())
             .map_err(AddError::Parent)?;
@@ -351,12 +286,11 @@ where
     }
 }
 
-impl<T: Clone, V, M, E> UnionFind<T, V, M, E>
+impl<T: Hash+Eq + Serialize + DeserializeOwned + Clone, V, E> UnionFind<T, V, E>
 where
-    M: GrowableIdentityMapping<T>,
     E: GrowableExtra<T, V>,
 {
-    pub fn add_with_extra(&mut self, elem: T, extra: V) -> Result<(), AddErrorSimple<T, V, M, E>> {
+    pub fn add_with_extra(&mut self, elem: T, extra: V) -> Result<(), AddErrorSimple<T, V, HashMap<T,T>, E>> {
         self.parent
             .add_identity(elem.clone())
             .map_err(AddError::Parent)?;
