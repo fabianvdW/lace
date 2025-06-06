@@ -48,6 +48,7 @@ impl<K, V> GrowableExtra<K, V> for () {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(bound = "M: Serialize + serde::de::DeserializeOwned, T: Serialize + serde::de::DeserializeOwned")]
 pub struct ByRank<M, T> {
     mapping: M,
     phantom: PhantomData<T>,
