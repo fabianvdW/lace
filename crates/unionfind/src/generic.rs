@@ -9,7 +9,6 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 use thiserror::Error;
 use serde::{Deserialize, Serialize};
-use serde::de::DeserializeOwned;
 use serde_with::serde_as;
 
 /// A union find data structure. Note that this implementation clones elements a lot.
@@ -17,7 +16,8 @@ use serde_with::serde_as;
 /// like integers. However, arbitrary [`Clone`]+[`PartialEq`] types are possible.
 #[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UnionFind<T: Hash+Eq + Serialize + DeserializeOwned, V, E = ()> {
+#[serde(bound(serialize = "T: Serialize, E: Serialize", deserialize = "T: Deserialize<'de>, E: Deserialize<'de>"))]
+pub struct UnionFind<T: Hash+Eq, V, E = ()> {
     /// A mapping from some key to a parent key, for every key.
     /// When a key is in a class on its own, its parent is itself. Once
     /// unions start happening, multiple keys might get the same parent indicating
@@ -43,7 +43,7 @@ pub enum NewUnionFindError<P, E> {
 type NewUnionFindErrorSimple<T, V, M, E> =
     NewUnionFindError<<M as ParentMapping<T>>::Err, <E as Extra<T, V>>::DefaultMappingErr>;
 
-impl<T: Hash+Eq + Serialize + DeserializeOwned, V, E> UnionFind<T, V, E>
+impl<T: Hash+Eq, V, E> UnionFind<T, V, E>
 where
     T: Clone,
     E: Extra<T, V>,
@@ -60,7 +60,7 @@ where
     }
 }
 
-impl<T: Hash+Eq + Serialize + DeserializeOwned, V, E> UnionFind<T, V, E> {
+impl<T: Hash+Eq, V, E> UnionFind<T, V, E> {
     /// Find an element in the union find. Performs no path shortening,
     /// but can be used through an immutable reference.
     ///
@@ -107,7 +107,7 @@ pub enum UnionOrAddError<Err, T, V, M: GrowableMapping<T, T>, E: GrowableExtra<T
     NotUnionable(Err),
 }
 
-impl<T: Hash+Eq + Serialize + DeserializeOwned, V, E> UnionFind<T, V, E>
+impl<T: Hash+Eq, V, E> UnionFind<T, V, E>
 where
     E: GrowableExtra<T, V>,
     V: Default,
@@ -154,7 +154,7 @@ pub enum UnionStatus {
     PerformedUnion,
 }
 
-impl<T: Hash+Eq + Serialize + DeserializeOwned, V, E> UnionFind<T, V, E>
+impl<T: Hash+Eq, V, E> UnionFind<T, V, E>
 {
     fn union_helper<U: Union<T>>(
         &mut self,
@@ -204,7 +204,7 @@ pub enum UnionByRankError {
     Elem2NotFound,
 }
 
-impl<T: Hash+Eq + Serialize + DeserializeOwned, V> UnionFind<T, V, ByRank<T>>
+impl<T: Hash+Eq, V> UnionFind<T, V, ByRank<T>>
 where
     T: Clone + PartialEq+ Hash +Eq,
 {
@@ -270,7 +270,7 @@ pub enum AddError<E, P> {
 type AddErrorSimple<T, V, M, E> =
     AddError<<E as GrowableExtra<T, V>>::AddError, <M as GrowableMapping<T, T>>::AddError>;
 
-impl<T: Clone + Hash+Eq + Serialize + DeserializeOwned, V, E> UnionFind<T, V, E>
+impl<T: Clone + Hash+Eq, V, E> UnionFind<T, V, E>
 where
     E: GrowableExtra<T, V>,
     V: Default,
@@ -286,7 +286,7 @@ where
     }
 }
 
-impl<T: Hash+Eq + Serialize + DeserializeOwned + Clone, V, E> UnionFind<T, V, E>
+impl<T: Hash+Eq + Clone, V, E> UnionFind<T, V, E>
 where
     E: GrowableExtra<T, V>,
 {

@@ -53,7 +53,7 @@ impl<K, V> GrowableExtra<K, V> for () {
 
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(bound = "T: Serialize + serde::de::DeserializeOwned")]
+#[serde(bound(serialize = "T: Serialize", deserialize = "T: Deserialize<'de>"))]
 pub struct ByRank<T: Hash + Eq> {
     #[serde_as(as = "Vec<(_, _)>")]
     mapping: HashMap<T, usize>,
