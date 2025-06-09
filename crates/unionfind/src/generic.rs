@@ -23,7 +23,7 @@ pub struct UnionFind<T: Hash+Eq, V, E = ()> {
     /// unions start happening, multiple keys might get the same parent indicating
     /// they are unioned.
     #[serde_as(as = "Vec<(_, _)>")]
-    parent: HashMap<T, T>,
+    pub parent: HashMap<T, T>,
     /// An optional array of extra information for each key.
     /// Under union by rank this is a `Mapping<T, usize>` to assign a rank to each element
     /// in the union find.
